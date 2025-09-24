@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="hi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Simple PayPal Shop — Mobile Friendly</title>
+  <style>
+    :root{--bg:#f7f7f8;--card:#fff;--accent:#0b74de}
+    body{font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;background:var(--bg);color:#111}
+    header{background:var(--accent);color:#fff;padding:14px 16px;display:flex;align-items:center;justify-content:space-between}
+    header h1{font-size:18px;margin:0}
+    .container{padding:12px;max-width:1100px;margin:0 auto}
+    .controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+    button{background:var(--accent);color:#fff;border:0;padding:8px 12px;border-radius:8px;cursor:pointer}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
+    .card{background:var(--card);padding:10px;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.06)}
+    .thumb{height:120px;background:#eee;border-radius:8px;margin-bottom:8px;display:flex;align-items:center;justify-content:center;color:#888}
+    .title{font-weight:600;font-size:14px;margin-bottom:6px}
+    .price{color:green;font-weight:700;margin-bottom:8px}
+    .admin{background:#fff;padding:10px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.06);margin-bottom:12px}
+    label{display:block;font-size:13px;margin-top:6px}
+    input,select,textarea{width:100%;padding:8px;border-radius:8px;border:1px solid #ddd;margin-top:6px}
+    .row{display:flex;gap:8px}
+    .modal{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;padding:12px}
+    .modal .box{width:100%;max-width:420px;background:#fff;padding:12px;border-radius:12px}
+    .small{font-size:13px;color:#666}
+    footer{padding:12px;text-align:center;color:#666;font-size:13px}
+    @media (max-width:420px){.thumb{height:90px}}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Simple PayPal Shop</h1>
+    <div class="small">No login — PayPal Checkout</div>
+  </header>
+  <div class="container">
+    <div class="controls">
+      <button id="toggleAdmin">Add / Edit Products</button>
+      <button id="sample">Load Sample Products</button>
+      <button id="clear">Clear All</button>
+    </div>
+
+    <div id="admin" class="admin" style="display:none">
+      <h3>Product Editor</h3>
+      <label>Title <input id="pTitle" placeholder="Mobile XYZ" /></label>
+      <label>Description <textarea id="pDesc" rows="2"></textarea></label>
+      <div class="row">
+        <label style="flex:1">Price (in INR) <input id="pPrice" type="number" min="1" /></label>
+        <label style="width:120px">Image URL <input id="pImg" placeholder="optional image url" /></label>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button id="addProd">Add Product</button>
+        <button id="saveChanges" style="background:#444">Save (auto)</button>
+      </div>
+      <p class="small">Products are stored locally (localStorage). To publish replace the PayPal client ID below with your sandbox/live client id.</p>
+    </div>
+
+    <div id="products" class="grid"></div>
+  </div>
+
+  <div id="buyModal" class="modal" style="display:none">
+    <div class="box">
+      <div id="modalContent"></div>
+      <div id="paypal-button-container"></div>
+      <div style="text-align:right;margin-top:8px"><button id="closeModal" style="background:#888">Close</button></div>
+    </div>
+  </div>
+
+  <footer>Made for you • Replace <code>YOUR_PAYPAL_CLIENT_ID</code> in the script src with your PayPal client id (sandbox/live)</footer>
+
+  <!-- PayPal SDK — replace client-id with your own. currency set to INR. -->
+  <script src="https://www.paypal.com/sdk/js?client-id=YOUR_PAYPAL_CLIENT_ID&currency=INR"></script>
+
+  <script>
+    // Simple frontend-only shop. Products saved in localStorage. No server required.
+    const LS_KEY = 'simple_paypal_shop_v1';
+    let products = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
+
+    const productsEl = document.getElementById('products');
+    const adminEl = document.getElementById('admin');
+    const toggleAdmin = document.getElementById('toggleAdmin');
+    const sampleBtn = document.getElementById('sample');
+    const clearBtn = document.getElementById('clear');
+    const addProd = document.getElementById('addProd');
+    const saveChanges = document.getElementById('saveChanges');
+
+    function render(){
+      productsEl.innerHTML='';
+      if(products.length===0){
+        productsEl.innerHTML='<div style="grid-column:1/-1;padding:16px;background:#fff;border-radius:8px;text-align:center">No products. Click \"Load Sample Products\" or add your own.</div>';
+        return;
+      }
+      products.forEach((p,idx)=>{
+        const card = document.createElement('div');card.className='card';
+        const thumb = document.createElement('div');thumb.className='thumb';
+        thumb.innerHTML = p.img? `<img src="${p.img}" style="max-width:100%;max-height:100%;border-radius:8px;">` : 'Image';
+        const title = document.createElement('div');title.className='title';title.textContent=p.title;
+        const desc = document.createElement('div');desc.className='small';desc.textContent=p.desc||'';
+        const price = document.createElement('div');price.className='price';price.textContent='₹ '+Number(p.price).toFixed(2);
+        const buyBtn = document.createElement('button');buyBtn.textContent='Buy';buyBtn.onclick=()=>openBuyModal(idx);
+        const editBtn = document.createElement('button');editBtn.textContent='Edit';editBtn.style.background='#666';editBtn.onclick=()=>editProduct(idx);
+        const delBtn = document.createElement('button');delBtn.textContent='Delete';delBtn.style.background='#c0392b';delBtn.onclick=()=>{if(confirm('Delete product?')){products.splice(idx,1);save();render();}};
+        card.appendChild(thumb);card.appendChild(title);card.appendChild(desc);card.appendChild(price);
+        const ctl = document.createElement('div');ctl.style.display='flex';ctl.style.gap='8px';ctl.style.marginTop='8px';
+        ctl.appendChild(buyBtn);ctl.appendChild(editBtn);ctl.appendChild(delBtn);
+        card.appendChild(ctl);
+        productsEl.appendChild(card);
+      });
+    }
+
+    function save(){localStorage.setItem(LS_KEY,JSON.stringify(products));}
+
+    toggleAdmin.onclick=()=>{adminEl.style.display = adminEl.style.display==='none'?'block':'none'}
+    sampleBtn.onclick=()=>{products = [
+      {title:'Mobile A1',desc:'Basic smartphone',price:4999,img:''},
+      {title:'Bluetooth Earbuds',desc:'Wireless',price:1299,img:''},
+      {title:'Sports Sandals',desc:'Comfort fit',price:899,img:''}
+    ]; save(); render();}
+    clearBtn.onclick=()=>{if(confirm('Clear ALL products?')){products=[];save();render();}}
+
+    addProd.onclick=()=>{
+      const t=document.getElementById('pTitle').value.trim();
+      const d=document.getElementById('pDesc').value.trim();
+      const pr=parseFloat(document.getElementById('pPrice').value);
+      const img=document.getElementById('pImg').value.trim();
+      if(!t||!pr){alert('Title and Price required');return}
+      products.push({title:t,desc:d,price:pr,img:img});
+      document.getElementById('pTitle').value='';document.getElementById('pDesc').value='';document.getElementById('pPrice').value='';document.getElementById('pImg').value='';
+      save(); render();
+    }
+
+    function editProduct(i){
+      const p = products[i];
+      document.getElementById('pTitle').value = p.title;document.getElementById('pDesc').value = p.desc;document.getElementById('pPrice').value = p.price;document.getElementById('pImg').value = p.img;
+      if(confirm('Replace this product when you click \"Add Product\"?')){products.splice(i,1);save();render();}
+    }
+
+    // Buy modal + PayPal integration
+    const buyModal = document.getElementById('buyModal');
+    const modalContent = document.getElementById('modalContent');
+    const closeModal = document.getElementById('closeModal');
+    let currentIndex = null;
+    function openBuyModal(i){
+      currentIndex=i; const p = products[i];
+      modalContent.innerHTML = `<h3>${p.title}</h3><p class=\"small\">${p.desc||''}</p><p class=\"price\">₹ ${Number(p.price).toFixed(2)}</p><label>Quantity <input id=\"qty\" type=\"number\" min=\"1\" value=\"1\" /></label>`;
+      // clear previous paypal buttons
+      const container = document.getElementById('paypal-button-container'); container.innerHTML='';
+      buyModal.style.display='flex';
+
+      // wait a tick for element
+      setTimeout(()=>{
+        // mount PayPal Buttons for dynamic amount
+        paypal.Buttons({
+          style:{layout:'vertical'},
+          createOrder: function(data, actions) {
+            const q = Number(document.getElementById('qty').value || 1);
+            const total = (Number(p.price) * q).toFixed(2);
+            return actions.order.create({
+              purchase_units: [{ amount: { currency_code: 'INR', value: total }, description: p.title }]
+            });
+          },
+          onApprove: function(data, actions) {
+            return actions.order.capture().then(function(details) {
+              alert('Payment completed — '+details.status+'\\nOrder ID: '+details.id+'\\nPayer: '+(details.payer.name && details.payer.name.given_name ? details.payer.name.given_name : ''));
+              buyModal.style.display='none';
+            });
+          },
+          onError: function(err){console.error(err); alert('PayPal Error: '+err)}
+        }).render('#paypal-button-container');
+      },100);
+    }
+    closeModal.onclick=()=>buyModal.style.display='none';
+
+    // init
+    render();
+  </script>
+</body>
+</html>
