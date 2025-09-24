@@ -62,7 +62,7 @@
       <div id="paypal-button-container"></div>
       <div style="text-align:right;margin-top:8px"><button id="closeModal" style="background:#888">Close</button></div>
     </div>
-  </div>  <footer>Made for you • Replace <code>YOUR_PAYPAL_CLIENT_ID</code> in the script src with your PayPal client id (sandbox/live)</footer>  <!-- PayPal SDK — replace client-id with your own. currency set to INR. -->  <script src="https://www.paypal.com/sdk/js?client-id=YOUR_PAYPAL_CLIENT_ID&currency=INR"></script>  <script>
+  </div>  <footer>Made for you • Replace <code>Acrbg7p4034Ar9tele21</code> in the script src with your PayPal client id (sandbox/live)</footer>  <!-- PayPal SDK — replace client-id with your own. currency set to INR. -->  <script src="https://www.paypal.com/sdk/js?client-id=YOUR_PAYPAL_CLIENT_ID&currency=INR"></script>  <script>
     // Simple frontend-only shop. Products saved in localStorage. No server required.
     const LS_KEY = 'simple_paypal_shop_v1';
     let products = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
